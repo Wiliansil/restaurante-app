@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Painel Admin - Restaurante do Bairro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;600;700&display=swap"
+    rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="assets/css/admin.css" />
+</head>
+
+<body>
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M11 9H9V2H7v7H5V2H3v7c0 2.12 1.66 3.84 3.75 3.97V22h2.5v-9.03C11.34 12.84 13 11.12 13 9V2h-2v7zm5-3v8h2.5v8H21V2c-2.76 0-5 2.24-5 4z" />
+        </svg>
+      </div>
+      <div>
+        <div class="logo-text">Restaurante do Bairro</div>
+        <div class="logo-subtitle">Painel Administrativo</div>
+      </div>
+    </div>
+
+    <nav>
+      <div class="nav-section">
+        <div class="nav-title">Principal</div>
+        <div class="nav-item active" data-section="dashboard">
+          <svg viewBox="0 0 24 24">
+            <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" />
+          </svg>
+          Dashboard
+        </div>
+        <div class="nav-item" data-section="pedidos">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z" />
+          </svg>
+          Pedidos
+          <span class="badge" id="pedidosBadge">0</span>
+        </div>
+        <div class="nav-item" data-section="pedidoManual">
+          <svg viewBox="0 0 24 24">
+            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+          </svg>
+          Pedido Manual
+        </div>
+
+        <div class="nav-item" data-section="comandas">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
+          </svg>
+          Comandas Abertas
+          <span class="badge" id="comandasBadge">0</span>
+        </div>
+        <div class="nav-item" data-section="finalizadas">
+          <svg viewBox="0 0 24 24">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+          </svg>
+          Finalizadas
+          <span class="badge" id="finalizadasBadge" style="background: var(--success)">0</span>
+        </div>
+        <div class="nav-item" data-section="garcom">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z" />
+          </svg>
+          Chamados Garçom
+          <span class="badge" id="waiterBadge" style="background: var(--warning)">0</span>
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-title">Gestão</div>
+        <div class="nav-item" data-section="produtos">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M11 9H9V2H7v7H5V2H3v7c0 2.12 1.66 3.84 3.75 3.97V22h2.5v-9.03C11.34 12.84 13 11.12 13 9V2h-2v7zm5-3v8h2.5v8H21V2c-2.76 0-5 2.24-5 4z" />
+          </svg>
+          Produtos
+        </div>
+        <div class="nav-item" data-section="estoque">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M20 6h-2.18c.11-.31.18-.65.18-1 0-1.66-1.34-3-3-3-1.05 0-1.96.54-2.5 1.35l-.5.67-.5-.68C10.96 2.54 10.05 2 9 2 7.34 2 6 3.34 6 5c0 .35.07.69.18 1H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-5-2c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zM9 4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm11 15H4v-2h16v2zm0-5H4V8h5.08L7 10.83 8.62 12 11 8.76l1-1.36 1 1.36L15.38 12 17 10.83 14.92 8H20v6z" />
+          </svg>
+          Estoque
+        </div>
+        <div class="nav-item" data-section="crm">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+          </svg>
+          CRM Webhooks
+        </div>
+        <div class="nav-item" data-section="remarketing">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-5 9h-5v-2h5v2zm3-4H6V5h12v2z" />
+          </svg>
+          📣 Remarketing
+        </div>
+      </div>
+
+      <div style="
+          margin-top: auto;
+          padding: 16px;
+          background: var(--bg-lighter);
+          border-radius: 12px;
+        ">
+        <p style="
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+          ">
+          Integração
+          <strong style="color: var(--primary)">Feed Connect</strong>
+        </p>
+        <p style="
+            font-size: 11px;
+            color: var(--success);
+            margin: 0;
+          ">
+          Webhook configurado
+        </p>
+      </div>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <!-- DASHBOARD -->
+    <section class="section active" id="dashboard">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Dashboard</h1>
+          <p class="page-subtitle">Visão geral do restaurante</p>
+        </div>
+      </div>
+
+      <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+        <div class="stat-card">
+          <div class="stat-icon warning">
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+            </svg>
+          </div>
+          <div class="stat-value" id="statPending">0</div>
+          <div class="stat-label">Pedidos Pendentes</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon info">
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z" />
+            </svg>
+          </div>
+          <div class="stat-value" id="statActive">0</div>
+          <div class="stat-label">Comandas Ativas</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon success">
+            <svg viewBox="0 0 24 24">
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+            </svg>
+          </div>
+          <div class="stat-value" id="statDelivered">0</div>
+          <div class="stat-label">Finalizadas Hoje</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon primary">
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z" />
+            </svg>
+          </div>
+          <div class="stat-value" id="statRevenue">R$ 0,00</div>
+          <div class="stat-label">Faturamento Hoje</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon" style="background: rgba(156, 39, 176, 0.1); color: #9c27b0;">
+            <svg viewBox="0 0 24 24">
+              <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z" />
+            </svg>
+          </div>
+          <div class="stat-value" id="statTicket">R$ 0,00</div>
+          <div class="stat-label">Ticket Médio</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon" style="background: rgba(233, 30, 99, 0.1); color: #e91e63;">
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+            </svg>
+          </div>
+          <div class="stat-value" id="statOccupancy">0%</div>
+          <div class="stat-label">Ocupação Mesas</div>
+        </div>
+      </div>
+
+      <!-- Gráficos e Relatórios Avançados -->
+      <div class="cards-row" style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; margin-top: 24px;">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Faturamento em Tempo Real</h3>
+            <select id="revenuePeriod"
+              style="padding: 6px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: var(--bg-lighter); color: var(--text-primary);">
+              <option value="today">Hoje</option>
+            </select>
+          </div>
+          <div style="padding: 24px; height: 300px; position: relative;">
+            <canvas id="revenueChart"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Categorias</h3>
+          </div>
+          <div
+            style="padding: 24px; height: 300px; position: relative; display: flex; align-items: center; justify-content: center;">
+            <canvas id="categoryChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 24px;">
+        <div class="card-header">
+          <h3 class="card-title">Produtos Mais Vendidos</h3>
+        </div>
+        <div id="topProducts"
+          style="padding: 24px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px;">
+          <div style="text-align: center; color: var(--text-secondary);">Carregando...</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 24px;">
+        <div class="card-header">
+          <h3 class="card-title">Relatórios Detalhados</h3>
+          <div style="display: flex; gap: 12px;">
+            <button class="btn-secondary" onclick="exportReport('pdf')">Exportar PDF</button>
+            <button class="btn-secondary" onclick="exportReport('csv')">Exportar CSV</button>
+          </div>
+        </div>
+        <div style="padding: 24px;">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Data Inicial</label>
+              <input type="date" id="reportStartDate">
+            </div>
+            <div class="form-group">
+              <label>Data Final</label>
+              <input type="date" id="reportEndDate">
+            </div>
+            <div class="form-group" style="display: flex; align-items: flex-end;">
+              <button class="btn-add" onclick="generateReport()">Gerar Relatório</button>
+            </div>
+          </div>
+          <div id="reportContent"
+            style="margin-top: 24px; padding: 24px; background: var(--bg-lighter); border-radius: 8px; min-height: 200px;">
+            <p style="text-align: center; color: var(--text-secondary);">Selecione um período e clique em "Gerar
+              Relatório"</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Últimos Pedidos</h3>
+        </div>
+        <div class="orders-list" id="dashboardOrders">
+          <div style="
+              padding: 40px;
+              text-align: center;
+              color: var(--text-secondary);
+            ">
+            Nenhum pedido ainda
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PEDIDOS -->
+    <section class="section" id="pedidos">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Pedidos</h1>
+          <p class="page-subtitle">Gerencie os pedidos em tempo real</p>
+        </div>
+        <div class="filters">
+          <button class="filter-btn active" data-filter="all">Todos</button>
+          <button class="filter-btn" data-filter="pending">Pendentes</button>
+          <button class="filter-btn" data-filter="preparing">Preparando</button>
+          <button class="filter-btn" data-filter="ready">Prontos</button>
+          <button class="filter-btn" data-filter="closed">Finalizados</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Todos os Pedidos</h3>
+        </div>
+        <div class="orders-list" id="allOrdersList">
+          <div style="
+              padding: 40px;
+              text-align: center;
+              color: var(--text-secondary);
+            ">
+            Nenhum pedido
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- COMANDAS ABERTAS -->
+    <section class="section" id="comandas">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Comandas Abertas</h1>
+          <p class="page-subtitle">Gerencie as comandas em andamento</p>
+        </div>
+      </div>
+      <div class="comandas-grid" id="comandasGrid">
+        <div style="
+            grid-column: 1 / -1;
+            padding: 40px;
+            text-align: center;
+            color: var(--text-secondary);
+          ">
+          Nenhuma comanda aberta
+        </div>
+      </div>
+    </section>
+
+    <!-- COMANDAS FINALIZADAS -->
+    <section class="section" id="finalizadas">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Comandas Finalizadas</h1>
+          <p class="page-subtitle">Histórico de comandas fechadas</p>
+        </div>
+      </div>
+      <div class="comandas-grid" id="finalizadasGrid">
+        <div style="
+            grid-column: 1 / -1;
+            padding: 40px;
+            text-align: center;
+            color: var(--text-secondary);
+          ">
+          Nenhuma comanda finalizada
+        </div>
+      </div>
+    </section>
+
+    <!-- CHAMADOS DE GARÇOM -->
+    <section class="section" id="garcom">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Chamados de Garçom</h1>
+          <p class="page-subtitle">Clientes solicitando atendimento</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Chamados Pendentes</h3>
+        </div>
+        <div class="waiter-calls-list" id="waiterCallsList">
+          <div style="
+              padding: 40px;
+              text-align: center;
+              color: var(--text-secondary);
+            ">
+            Nenhum chamado pendente
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PRODUTOS -->
+    <section class="section" id="produtos">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Produtos</h1>
+          <p class="page-subtitle">Gerencie o cardápio</p>
+        </div>
+        <button class="btn-add" onclick="openProductModal()">
+          <svg viewBox="0 0 24 24">
+            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+          </svg>
+          Adicionar Produto
+        </button>
+      </div>
+
+      <div class="products-tabs">
+        <button class="product-tab active" data-category="pratos">
+          Pratos
+        </button>
+        <button class="product-tab" data-category="bebidas">Bebidas</button>
+        <button class="product-tab" data-category="sobremesas">
+          Sobremesas
+        </button>
+        <button class="product-tab" data-category="porcoes">Porções</button>
+      </div>
+
+      <div class="products-grid" id="productsGrid"></div>
+    </section>
+
+    <!-- PEDIDO MANUAL -->
+    <section class="section" id="pedidoManual">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Pedido Manual</h1>
+          <p class="page-subtitle">Criar pedido para clientes sem acesso ao QR Code</p>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom: 20px;">
+        <div class="card-header">
+          <h3 class="card-title">Identificação do Cliente</h3>
+        </div>
+        <div style="padding: 24px;">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Nome do Cliente *</label>
+              <input type="text" id="manualClientName" placeholder="Digite o nome">
+            </div>
+            <div class="form-group">
+              <label>Mesa *</label>
+              <input type="text" id="manualClientTable" placeholder="Ex: 5">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Telefone (Opcional)</label>
+            <input type="tel" id="manualClientPhone" placeholder="(00) 00000-0000">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Selecionar Produtos</h3>
+          <div class="products-tabs" id="manualTabs">
+            <button class="product-tab active" data-category="pratos">Pratos</button>
+            <button class="product-tab" data-category="bebidas">Bebidas</button>
+            <button class="product-tab" data-category="sobremesas">Sobremesas</button>
+            <button class="product-tab" data-category="porcoes">Porções</button>
+          </div>
+        </div>
+        <div style="padding: 24px;">
+          <div id="manualProductsGrid" class="products-grid"></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 20px;">
+        <div class="card-header">
+          <h3 class="card-title">Carrinho do Pedido</h3>
+        </div>
+        <div id="manualCart" style="padding: 24px; min-height: 100px;">
+          <p style="text-align: center; color: var(--text-secondary);">Nenhum item adicionado</p>
+        </div>
+        <div
+          style="padding: 20px 24px; border-top: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="font-size: 13px; color: var(--text-secondary);">Total do Pedido</div>
+            <div id="manualTotal" style="font-size: 24px; font-weight: 700; color: var(--primary);">R$ 0,00</div>
+          </div>
+          <button id="btnConfirmManualOrder" class="btn-add" style="padding: 14px 32px;">
+            <svg viewBox="0 0 24 24">
+              <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" />
+            </svg>
+            Confirmar Pedido
+          </button>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ESTOQUE -->
+    <section class="section" id="estoque">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Gestão de Estoque</h1>
+          <p class="page-subtitle">Controle de produtos e ingredientes</p>
+        </div>
+        <button class="btn-add" onclick="openStockModal()">
+          <svg viewBox="0 0 24 24">
+            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+          </svg>
+          Adicionar Item ao Estoque
+        </button>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Itens do Estoque</h3>
+          <div class="filters">
+            <button class="filter-btn active" data-stock-filter="all">Todos</button>
+            <button class="filter-btn" data-stock-filter="low">Estoque Baixo</button>
+            <button class="filter-btn" data-stock-filter="out">Sem Estoque</button>
+          </div>
+        </div>
+        <div class="stock-grid" id="stockGrid"
+          style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; padding: 24px;">
+          <div style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary); padding: 40px;">
+            Carregando estoque...
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 24px;">
+        <div class="card-header">
+          <h3 class="card-title">Movimentações de Estoque</h3>
+        </div>
+        <div id="stockMovements" style="padding: 24px;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                <th style="padding: 12px; text-align: left; color: var(--text-secondary); font-weight: 600;">Data</th>
+                <th style="padding: 12px; text-align: left; color: var(--text-secondary); font-weight: 600;">Item</th>
+                <th style="padding: 12px; text-align: left; color: var(--text-secondary); font-weight: 600;">Tipo</th>
+                <th style="padding: 12px; text-align: right; color: var(--text-secondary); font-weight: 600;">Quantidade
+                </th>
+                <th style="padding: 12px; text-align: right; color: var(--text-secondary); font-weight: 600;">Saldo</th>
+              </tr>
+            </thead>
+            <tbody id="stockMovementsBody">
+              <tr>
+                <td colspan="5" style="padding: 40px; text-align: center; color: var(--text-secondary);">
+                  Nenhuma movimentação registrada
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- CRM / WEBHOOKS -->
+    <section class="section" id="crm">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Integração CRM</h1>
+          <p class="page-subtitle">Configure webhooks e automações</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Configuração de Webhooks</h3>
+        </div>
+        <div style="padding: 24px">
+          <div class="form-group">
+            <label>URL do Webhook n8n / Feed Connect</label>
+            <input type="text" id="webhookUrl" placeholder="https://seu-n8n.com/webhook/..." />
+          </div>
+          <div class="form-group">
+            <label>Eventos para enviar</label>
+            <div style="
+                display: flex;
+                flex-wrap: wrap;
+                gap: 16px;
+                margin-top: 8px;
+              ">
+              <label style="
+                  display: flex;
+                  align-items: center;
+                  gap: 8px;
+                  cursor: pointer;
+                ">
+                <input type="checkbox" checked />
+                Nova comanda
+              </label>
+              <label style="
+                  display: flex;
+                  align-items: center;
+                  gap: 8px;
+                  cursor: pointer;
+                ">
+                <input type="checkbox" checked />
+                Novo pedido
+              </label>
+              <label style="
+                  display: flex;
+                  align-items: center;
+                  gap: 8px;
+                  cursor: pointer;
+                ">
+                <input type="checkbox" checked />
+                Comanda finalizada
+              </label>
+              <label style="
+                  display: flex;
+                  align-items: center;
+                  gap: 8px;
+                  cursor: pointer;
+                ">
+                <input type="checkbox" checked />
+                Chamar garçom
+              </label>
+            </div>
+          </div>
+          <div style="display: flex; gap: 12px; align-items: center; margin-top: 16px;">
+            <button class="btn-add">Salvar Configurações</button>
+            <button class="btn-secondary" id="btnTestWebhook" style="font-size: 12px; padding: 6px 16px;">🔍 Testar
+              Conexão</button>
+            <span id="webhookTestResult" style="font-size: 13px; font-weight: bold; margin-left: 8px;"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 24px">
+        <div class="card-header">
+          <h3 class="card-title">Programa de Fidelidade</h3>
+        </div>
+        <div style="padding: 24px">
+          <p style="
+              color: var(--text-secondary);
+              margin-bottom: 16px;
+            ">
+            Configure regras de fidelidade para remarketing automático via
+            Feed Connect.
+          </p>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Pontos por R$ gasto</label>
+              <input type="number" value="1" />
+            </div>
+            <div class="form-group">
+              <label>Desconto ao atingir 100 pontos</label>
+              <input type="text" value="10%" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- REMARKETING -->
+    <section class="section" id="remarketing">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Remarketing</h1>
+          <p class="page-subtitle">Dispare campanhas para os contatos do seu banco de dados</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Base de Clientes</h3>
+        </div>
+        <div style="padding: 24px; overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; min-width: 600px;">
+            <thead>
+              <tr
+                style="border-bottom: 1px solid rgba(255,255,255,0.1); color: var(--text-secondary); text-align: left;">
+                <th style="padding: 12px; font-weight: 600;">Nome</th>
+                <th style="padding: 12px; font-weight: 600;">Mesa Freq.</th>
+                <th style="padding: 12px; font-weight: 600;">Pontos</th>
+                <th style="padding: 12px; font-weight: 600;">Gasto Total</th>
+                <th style="padding: 12px; font-weight: 600;">Visitas</th>
+                <th style="padding: 12px; text-align: right; font-weight: 600;">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="remarketingBody">
+              <tr>
+                <td colspan="6" style="padding: 24px; text-align: center;">Carregando contatos...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Notification -->
+  <div class="notification" id="notification">
+    <div class="notification-icon">
+      <svg viewBox="0 0 24 24">
+        <path
+          d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z" />
+      </svg>
+    </div>
+    <div>
+      <div class="notification-text" id="notificationText">
+        Novo pedido!
+      </div>
+      <div class="notification-sub" id="notificationSub">Mesa 5</div>
+    </div>
+  </div>
+
+  <!-- Modal de Detalhes da Comanda -->
+  <div class="modal-overlay" id="comandaDetailsModal" style="display: none;">
+    <div class="modal" style="max-width: 700px; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="comandaDetailsTitle">Detalhes da Comanda</h3>
+        <button class="modal-close" onclick="closeComandaDetailsModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="comandaDetailsBody">
+        <!-- Conteúdo será preenchido dinamicamente -->
+      </div>
+      <div class="modal-footer" id="comandaDetailsFooter">
+        <!-- Botões serão preenchidos dinamicamente -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Estoque -->
+  <div class="modal-overlay" id="stockModal" style="display: none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title" id="stockModalTitle">Adicionar Item ao Estoque</h3>
+        <button class="modal-close" onclick="closeStockModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Nome do Item *</label>
+          <input type="text" id="stockItemName" placeholder="Ex: Carne, Cebola, Refrigerante">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Quantidade Atual *</label>
+            <input type="number" id="stockQuantity" min="0" step="0.01" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label>Unidade de Medida *</label>
+            <select id="stockUnit">
+              <option value="un">Unidade</option>
+              <option value="kg">Quilograma (kg)</option>
+              <option value="g">Grama (g)</option>
+              <option value="l">Litro (L)</option>
+              <option value="ml">Mililitro (ml)</option>
+              <option value="cx">Caixa</option>
+              <option value="pct">Pacote</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Estoque Mínimo *</label>
+            <input type="number" id="stockMin" min="0" step="0.01" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label>Custo Unitário (R$)</label>
+            <input type="number" id="stockCost" min="0" step="0.01" placeholder="0.00">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Observações</label>
+          <textarea id="stockNotes" rows="3" placeholder="Informações adicionais sobre o item"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeStockModal()">Cancelar</button>
+        <button class="btn-primary" onclick="saveStockItem()">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/admin.js"></script>
+</body>
+
+</html>
