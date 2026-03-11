@@ -46,6 +46,10 @@ async function initializeDatabase() {
   try {
     const schemaSql = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
     await pool.query(schemaSql);
+    await pool.query(`
+      ALTER TABLE vendas ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'pendente'
+    `);
+    await pool.query(`UPDATE vendas SET status = COALESCE(status, 'pago') WHERE status IS NULL`);
     console.log('Tabelas verificadas com sucesso a partir do schema.sql');
   } catch (err) {
     console.error('Falha de inicialização das tabelas SQL:', err.message);
@@ -136,12 +140,27 @@ app.get('/api/produtos', async (req, res) => {
 
 app.get('/api/vendas', async (req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT v.*, c.nome as session_name
-      FROM vendas v
-      LEFT JOIN contatos c ON v.contato_id = c.id
-      ORDER BY v.criado_em DESC
-    `);
+    const statusFilter = req.query.status;
+    let whereClause = '';
+    const params = [];
+
+    if (statusFilter === 'pendente' || statusFilter === 'pago') {
+      whereClause = 'WHERE v.status = $1';
+      params.push(statusFilter);
+    }
+
+    const result = await pool.query(
+      {
+        text: `
+          SELECT v.*, c.nome as session_name
+          FROM vendas v
+          LEFT JOIN contatos c ON v.contato_id = c.id
+          ${whereClause}
+          ORDER BY v.criado_em DESC
+        `,
+        values: params
+      }
+    );
     res.json(result.rows);
   } catch (err) {
     console.error('Falha GET vendas:', err);
@@ -177,8 +196,8 @@ app.post('/api/vendas', async (req, res) => {
 
     const result = await pool.query(
       `
-      INSERT INTO vendas (contato_id, mesa, itens, total, pontos_gerados)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO vendas (contato_id, mesa, itens, total, pontos_gerados, status)
+      VALUES ($1, $2, $3, $4, $5, 'pendente')
       RETURNING *
       `,
       [contato_id, mesa, JSON.stringify(itens), total, pontos]
@@ -204,6 +223,29 @@ app.post('/api/vendas', async (req, res) => {
   } catch (err) {
     console.error('Falha POST transação de venda:', err);
     res.status(500).json({ error: 'Erro ao registrar venda.' });
+  }
+});
+
+app.put('/api/vendas/:id/pagar', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) {
+    return res.status(400).json({ error: 'ID inválido.' });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE vendas SET status = 'pago' WHERE id = $1 AND status = 'pendente' RETURNING *`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Venda não encontrada ou já paga.' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Falha PUT vendas/pagar:', err);
+    res.status(500).json({ error: 'Erro ao marcar venda como paga.' });
   }
 });
 

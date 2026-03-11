@@ -30,24 +30,28 @@
   }
 
   // Buscar vendas do backend (pedidos feitos em outros dispositivos)
+  // Mapeia pendente -> status sent, open true | pago -> status closed, open false
   async function fetchVendasFromAPI() {
     try {
       const res = await fetch(window.location.origin + '/api/vendas');
       if (!res.ok) return;
       const vendas = await res.json();
+      const isPending = (v) => v.status === 'pendente';
       ordersFromAPI = (vendas || []).map((v) => {
         const itens = Array.isArray(v.itens) ? v.itens : (typeof v.itens === 'string' ? JSON.parse(v.itens || '[]') : []);
+        const pendente = isPending(v);
         return {
           id: 'api-' + v.id,
           clientId: null,
           sessionName: v.session_name || 'Cliente',
           table: v.mesa || 'N/A',
           items: itens,
-          status: 'closed',
-          open: false,
+          status: pendente ? 'sent' : 'closed',
+          open: pendente,
           createdAt: v.criado_em,
-          closedAt: v.criado_em,
+          closedAt: pendente ? null : (v.criado_em || null),
           fromAPI: true,
+          apiVendaId: v.id,
           total: parseFloat(v.total) || 0
         };
       });
@@ -493,7 +497,8 @@
     if (!comandasGrid) return;
     comandasGrid.innerHTML = "";
 
-    const open = orders.filter((o) => o.open);
+    const merged = getMergedOrders();
+    const open = merged.filter((o) => o.open);
 
     if (open.length === 0) {
       comandasGrid.innerHTML =
@@ -555,11 +560,10 @@
             Ver Detalhes
           </button>
           ${o.status === "sent"
-          ? `<button class="btn btn-success btn-close-comanda" data-id="${o.id}" data-client="${o.clientId}">Confirmar Pagamento</button>`
-          : `<button class="btn btn-primary" onclick="manualCloseComanda(${o.id})">Finalizar Manualmente</button>`
+          ? `<button class="btn btn-success btn-close-comanda" data-id="${o.id}" data-client="${o.clientId || ''}" data-api-venda-id="${o.apiVendaId || ''}">Confirmar Pagamento</button>`
+          : `<button class="btn btn-primary" onclick="manualCloseComanda(${JSON.stringify(o.id)}, '${o.apiVendaId || ''}')">Finalizar Manualmente</button>`
         }
-          <button class="btn btn-danger btn-delete" data-id="${o.id
-        }">Cancelar</button>
+          ${!o.fromAPI ? `<button class="btn btn-danger btn-delete" data-id="${o.id}">Cancelar</button>` : ''}
         </div>
       `;
 
@@ -844,44 +848,44 @@
     }
 
     if (viewComanda || viewMoreItems) {
-      const id = parseInt((viewComanda?.dataset.id || viewMoreItems?.dataset.orderId), 10);
-      openComandaDetails(id);
+      const id = viewComanda?.dataset.id || viewMoreItems?.dataset.orderId;
+      if (id) openComandaDetails(id);
     }
 
     if (closeComanda) {
-      const id = parseInt(closeComanda.dataset.id, 10);
-      const clientId = closeComanda.dataset.client;
+      const id = closeComanda.dataset.id;
+      const clientId = closeComanda.dataset.client || '';
+      const apiVendaId = closeComanda.dataset.apiVendaId;
+      const order = getOrderById(id);
 
-      // Confirma pagamento e fecha TODAS as comandas abertas desse clientId
-      orders = orders.map((o) => {
-        if (o.clientId === clientId && o.open) {
-          return {
-            ...o,
-            open: false,
-            status: "closed",
-            closedAt: new Date().toISOString(),
-            paidAt: new Date().toISOString(),
-          };
-        }
-        return o;
-      });
-
-      saveAndBroadcast();
-
-      if (channel && clientId) {
-        channel.postMessage({
-          type: "comanda-closed",
-          clientId,
+      if (order?.fromAPI && apiVendaId) {
+        fetch(window.location.origin + '/api/vendas/' + apiVendaId + '/pagar', { method: 'PUT' })
+          .then((res) => {
+            if (res.ok) {
+              return fetchVendasFromAPI().then(() => {
+                showNotification('Pagamento confirmado! Comanda da mesa ' + (order.table || '') + ' finalizada!', order.sessionName || '');
+                renderAll();
+              });
+            }
+            throw new Error('Falha ao confirmar pagamento');
+          })
+          .catch((e) => {
+            console.warn('Erro ao confirmar pagamento via API:', e);
+            showNotification('Erro ao confirmar pagamento. Tente novamente.', '');
+          });
+      } else {
+        orders = orders.map((o) => {
+          if (o.clientId === clientId && o.open) {
+            return { ...o, open: false, status: "closed", closedAt: new Date().toISOString(), paidAt: new Date().toISOString() };
+          }
+          return o;
         });
+        saveAndBroadcast();
+        if (channel && clientId) channel.postMessage({ type: "comanda-closed", clientId });
+        const anyOrder = orders.find((o) => o.clientId === clientId);
+        showNotification(anyOrder ? `Pagamento confirmado! Comanda da mesa ${anyOrder.table} finalizada!` : "Pagamento confirmado!", anyOrder?.sessionName || "");
+        renderAll();
       }
-
-      const anyOrder = orders.find((o) => o.clientId === clientId);
-      showNotification(
-        anyOrder ? `Pagamento confirmado! Comanda da mesa ${anyOrder.table} finalizada!` : "Pagamento confirmado!",
-        anyOrder?.sessionName || ""
-      );
-
-      renderAll();
     }
 
 
@@ -2070,7 +2074,7 @@
         ${itemsHtml}
       </div>
 
-      ${order.status !== "closed" ? `
+      ${order.status !== "closed" && !order.fromAPI ? `
         <div style="margin-bottom: 24px; padding: 16px; background: var(--bg-lighter); border-radius: 8px; border: 1px solid rgba(212, 165, 116, 0.3);">
           <h4 style="margin-bottom: 16px; color: var(--primary); display: flex; align-items: center; gap: 8px;">
             <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; fill: currentColor;">
@@ -2109,9 +2113,9 @@
       <button class="btn-secondary" onclick="closeComandaDetailsModal()">Fechar</button>
       <button class="btn-print" onclick="imprimirViaCliente(${JSON.stringify(order.id)})">🖨️ Imprimir Via</button>
       ${order.status === "sent"
-        ? `<button class="btn btn-success" onclick="confirmPaymentFromDetails(${order.id}, '${order.clientId || ''}')">Confirmar Pagamento e Finalizar</button>`
+        ? `<button class="btn btn-success" onclick="confirmPaymentFromDetails(${JSON.stringify(order.id)}, '${(order.clientId || '').replace(/'/g, "\\'")}', '${order.apiVendaId || ''}')">Confirmar Pagamento e Finalizar</button>`
         : order.status !== "closed"
-          ? `<button class="btn btn-primary" onclick="manualCloseComandaFromDetails(${order.id}, '${order.clientId || ''}')">Finalizar Manualmente</button>`
+          ? `<button class="btn btn-primary" onclick="manualCloseComandaFromDetails(${JSON.stringify(order.id)}, '${(order.clientId || '').replace(/'/g, "\\'")}', '${order.apiVendaId || ''}')">Finalizar Manualmente</button>`
           : ''
       }
     `;
@@ -2198,100 +2202,99 @@
     window.print();
   };
 
-  window.confirmPaymentFromDetails = function (orderId, clientId) {
+  window.confirmPaymentFromDetails = function (orderId, clientId, apiVendaId) {
     closeComandaDetailsModal();
-    const order = orders.find((o) => o.id === orderId);
+    const order = getOrderById(orderId);
     if (!order) return;
 
-    // Fecha todas as comandas do cliente
+    if (order.fromAPI && apiVendaId) {
+      fetch(window.location.origin + '/api/vendas/' + apiVendaId + '/pagar', { method: 'PUT' })
+        .then((res) => {
+          if (res.ok) {
+            return fetchVendasFromAPI().then(() => {
+              showNotification('Pagamento confirmado! Comanda da mesa ' + (order.table || '') + ' finalizada!', order.sessionName || '');
+              renderAll();
+            });
+          }
+          throw new Error('Falha ao confirmar pagamento');
+        })
+        .catch((e) => {
+          console.warn('Erro ao confirmar pagamento via API:', e);
+          showNotification('Erro ao confirmar pagamento. Tente novamente.', '');
+        });
+      return;
+    }
+
     orders = orders.map((o) => {
       if (o.clientId === clientId && o.open) {
-        return {
-          ...o,
-          open: false,
-          status: "closed",
-          closedAt: new Date().toISOString(),
-          paidAt: new Date().toISOString(),
-        };
+        return { ...o, open: false, status: "closed", closedAt: new Date().toISOString(), paidAt: new Date().toISOString() };
       }
       return o;
     });
-
     saveAndBroadcast();
-
-    if (channel && clientId) {
-      channel.postMessage({
-        type: "comanda-closed",
-        clientId,
-      });
-    }
+    if (channel && clientId) channel.postMessage({ type: "comanda-closed", clientId });
 
     try {
       const total = order.items.reduce((s, i) => s + (i.price * i.qty), 0);
-      const vendasUrl = window.location.origin + '/api/vendas'; // Rota corrigida
-      fetch(vendasUrl, {
+      fetch(window.location.origin + '/api/vendas', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mesa: order.table, itens: order.items, total: total, session_id: clientId })
       });
     } catch (e) { }
 
-    showNotification(
-      `Pagamento confirmado! Comanda da mesa ${order.table} finalizada!`,
-      order.sessionName || ""
-    );
-
+    showNotification(`Pagamento confirmado! Comanda da mesa ${order.table} finalizada!`, order.sessionName || "");
     renderAll();
   };
 
-  window.manualCloseComandaFromDetails = function (orderId, clientId) {
+  window.manualCloseComandaFromDetails = function (orderId, clientId, apiVendaId) {
     if (!confirm("Tem certeza que deseja finalizar esta comanda manualmente?")) return;
     closeComandaDetailsModal();
-    manualCloseComanda(orderId);
+    manualCloseComanda(orderId, apiVendaId);
   };
 
-  window.manualCloseComanda = function (orderId) {
-    const order = orders.find((o) => o.id === orderId);
+  window.manualCloseComanda = function (orderId, apiVendaIdParam) {
+    const order = getOrderById(orderId);
     if (!order) return;
 
-    // Fecha todas as comandas do cliente
+    const apiVendaId = apiVendaIdParam || order.apiVendaId;
+    if (order.fromAPI && apiVendaId) {
+      fetch(window.location.origin + '/api/vendas/' + apiVendaId + '/pagar', { method: 'PUT' })
+        .then((res) => {
+          if (res.ok) {
+            return fetchVendasFromAPI().then(() => {
+              showNotification('Comanda da mesa ' + (order.table || '') + ' finalizada manualmente!', order.sessionName || '');
+              renderAll();
+            });
+          }
+          throw new Error('Falha ao finalizar');
+        })
+        .catch((e) => {
+          console.warn('Erro ao finalizar via API:', e);
+          showNotification('Erro ao finalizar. Tente novamente.', '');
+        });
+      return;
+    }
+
     orders = orders.map((o) => {
       if (o.clientId === order.clientId && o.open) {
-        return {
-          ...o,
-          open: false,
-          status: "closed",
-          closedAt: new Date().toISOString(),
-          manuallyClosed: true,
-        };
+        return { ...o, open: false, status: "closed", closedAt: new Date().toISOString(), manuallyClosed: true };
       }
       return o;
     });
-
     saveAndBroadcast();
-
-    if (channel && order.clientId) {
-      channel.postMessage({
-        type: "comanda-closed",
-        clientId: order.clientId,
-      });
-    }
+    if (channel && order.clientId) channel.postMessage({ type: "comanda-closed", clientId: order.clientId });
 
     try {
       const total = order.items.reduce((s, i) => s + (i.price * i.qty), 0);
-      const vendasUrl = window.location.origin + '/api/vendas'; // Rota corrigida dinâmica
-      fetch(vendasUrl, {
+      fetch(window.location.origin + '/api/vendas', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mesa: order.table, itens: order.items, total: total, session_id: order.clientId })
       });
     } catch (e) { }
 
-    showNotification(
-      `Comanda da mesa ${order.table} finalizada manualmente!`,
-      order.sessionName || ""
-    );
-
+    showNotification(`Comanda da mesa ${order.table} finalizada manualmente!`, order.sessionName || "");
     renderAll();
   };
 

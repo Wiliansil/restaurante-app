@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS contatos (
     atualizado_em TIMESTAMP DEFAULT NOW()
 );
 
--- Tabela de Vendas (Responsável por manter os pedidos fechados serializados)
+-- Tabela de Vendas (Responsável por manter os pedidos serializados)
+-- status: 'pendente' = aguardando pagamento, 'pago' = finalizado
 CREATE TABLE IF NOT EXISTS vendas (
     id SERIAL PRIMARY KEY,
     contato_id INTEGER REFERENCES contatos(id) ON DELETE SET NULL,
@@ -23,6 +24,7 @@ CREATE TABLE IF NOT EXISTS vendas (
     itens JSONB,
     total NUMERIC(10,2),
     pontos_gerados INTEGER,
+    status VARCHAR(20) DEFAULT 'pendente',
     criado_em TIMESTAMP DEFAULT NOW()
 );
 
