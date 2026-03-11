@@ -26,10 +26,20 @@
   // Verificar se API está disponível
   async function checkAPI() {
     if (!USE_API) return false;
+
     try {
-      const response = await fetch(`${API_URL}/dashboard`, { method: 'GET', timeout: 2000 });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+      const response = await fetch(`${API_URL}/dashboard`, {
+        method: 'GET',
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
       return response.ok;
     } catch (e) {
+      console.warn('checkAPI falhou:', e);
       return false;
     }
   }
