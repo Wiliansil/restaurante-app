@@ -760,7 +760,7 @@ btnConfirmFinish.addEventListener("click", () => {
     });
   }
 
-  // --- NOVO BLOCO ESSENCIAL PARA COMUNICAR N8N E O BANCO DE DADOS ---
+  // --- Enviar venda para o backend (PostgreSQL + N8N) ---
   const backendVendasUrl = window.location.origin + '/api/vendas';
   fetch(backendVendasUrl, {
     method: "POST",
@@ -771,7 +771,14 @@ btnConfirmFinish.addEventListener("click", () => {
       itens: ord.items,
       total: total
     })
-  }).catch(err => console.warn("Backend local não alcançado pela rota de vendas. Operação segura via Broadcast Admin."));
+  })
+    .then((res) => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    })
+    .catch((err) => {
+      console.warn("Falha ao enviar comanda ao backend:", err);
+      showToast("Comanda salva localmente. O painel admin pode não exibir em outro dispositivo.", 5000);
+    });
   // ------------------------------------------------------------------
 
   // Atualiza UI para não permitir mais pedidos nesta comanda

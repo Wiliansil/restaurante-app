@@ -136,7 +136,12 @@ app.get('/api/produtos', async (req, res) => {
 
 app.get('/api/vendas', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM vendas ORDER BY criado_em DESC');
+    const result = await pool.query(`
+      SELECT v.*, c.nome as session_name
+      FROM vendas v
+      LEFT JOIN contatos c ON v.contato_id = c.id
+      ORDER BY v.criado_em DESC
+    `);
     res.json(result.rows);
   } catch (err) {
     console.error('Falha GET vendas:', err);

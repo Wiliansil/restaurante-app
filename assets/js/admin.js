@@ -29,8 +29,62 @@
     } catch (e) { }
   }
 
+  // Buscar vendas do backend (pedidos feitos em outros dispositivos)
+  async function fetchVendasFromAPI() {
+    try {
+      const res = await fetch(window.location.origin + '/api/vendas');
+      if (!res.ok) return;
+      const vendas = await res.json();
+      ordersFromAPI = (vendas || []).map((v) => {
+        const itens = Array.isArray(v.itens) ? v.itens : (typeof v.itens === 'string' ? JSON.parse(v.itens || '[]') : []);
+        return {
+          id: 'api-' + v.id,
+          clientId: null,
+          sessionName: v.session_name || 'Cliente',
+          table: v.mesa || 'N/A',
+          items: itens,
+          status: 'closed',
+          open: false,
+          createdAt: v.criado_em,
+          closedAt: v.criado_em,
+          fromAPI: true,
+          total: parseFloat(v.total) || 0
+        };
+      });
+    } catch (e) {
+      console.warn('fetchVendasFromAPI falhou:', e);
+      ordersFromAPI = [];
+    }
+  }
+
+  // Lista mesclada: localStorage + API (para exibir pedidos de todos os dispositivos)
+  function getMergedOrders() {
+    const lsClosedKeys = new Set(
+      orders
+        .filter((o) => o.status === 'closed')
+        .map((o) => {
+          const total = o.items ? o.items.reduce((s, i) => s + i.price * i.qty, 0) : (o.total || 0);
+          return `${o.table}-${o.sessionName || ''}-${total.toFixed(2)}`;
+        })
+    );
+    const fromAPI = ordersFromAPI.filter((v) => {
+      const total = v.total || (v.items ? v.items.reduce((s, i) => s + i.price * i.qty, 0) : 0);
+      const key = `${v.table}-${v.sessionName || ''}-${total.toFixed(2)}`;
+      return !lsClosedKeys.has(key);
+    });
+    return [...orders, ...fromAPI];
+  }
+
+  // Buscar pedido por ID (localStorage ou API)
+  function getOrderById(id) {
+    const o = orders.find((x) => String(x.id) === String(id));
+    if (o) return o;
+    return ordersFromAPI.find((x) => String(x.id) === String(id)) || null;
+  }
+
   // State
   let orders = readLS(LS_ORDERS, []);
+  let ordersFromAPI = []; // Vendas do backend (GET /api/vendas) - pedidos de outros dispositivos
   let products = readLS(LS_PRODUCTS, {
     pratos: [],
     bebidas: [],
@@ -263,17 +317,18 @@
 
   // Render functions
   function renderStats() {
-    const pending = orders.filter((o) => o.open && o.status === "open").length;
-    const active = orders.filter((o) => o.open).length;
-    const delivered = orders.filter((o) => o.status === "closed").length;
-    const revenue = orders
+    const merged = getMergedOrders();
+    const pending = merged.filter((o) => o.open && o.status === "open").length;
+    const active = merged.filter((o) => o.open).length;
+    const delivered = merged.filter((o) => o.status === "closed").length;
+    const revenue = merged
       .filter((o) => o.status === "closed")
       .reduce(
         (s, o) =>
           s +
           (o.items
             ? o.items.reduce((a, i) => a + i.price * i.qty, 0)
-            : 0),
+            : (o.total || 0)),
         0
       );
 
@@ -281,7 +336,7 @@
     const avgTicket = delivered > 0 ? revenue / delivered : 0;
 
     // Ocupação: contar mesas únicas ativas
-    const activeTables = new Set(orders.filter(o => o.open).map(o => o.table)).size;
+    const activeTables = new Set(merged.filter(o => o.open).map(o => o.table)).size;
     const totalTables = 20; // Capacidade simulada
     const occupancy = Math.round((activeTables / totalTables) * 100);
 
@@ -297,11 +352,11 @@
     const statOccupancy = q("#statOccupancy");
     if (statOccupancy) statOccupancy.textContent = `${occupancy}%`;
 
-    if (pedidosBadge) pedidosBadge.textContent = orders.length;
+    if (pedidosBadge) pedidosBadge.textContent = merged.length;
     if (comandasBadge)
-      comandasBadge.textContent = orders.filter((o) => o.open).length;
+      comandasBadge.textContent = merged.filter((o) => o.open).length;
     if (finalizadasBadge)
-      finalizadasBadge.textContent = orders.filter(
+      finalizadasBadge.textContent = merged.filter(
         (o) => o.status === "closed"
       ).length;
 
@@ -326,13 +381,14 @@
     if (!dashboardOrders) return;
     dashboardOrders.innerHTML = "";
 
-    if (orders.length === 0) {
+    const merged = getMergedOrders();
+    if (merged.length === 0) {
       dashboardOrders.innerHTML =
         '<div style="padding: 40px; text-align: center; color: var(--text-secondary);">Nenhum pedido ainda</div>';
       return;
     }
 
-    orders
+    merged
       .slice()
       .reverse()
       .slice(0, 10)
@@ -363,22 +419,23 @@
     if (!allOrdersList) return;
     allOrdersList.innerHTML = "";
 
+    const merged = getMergedOrders();
     // Aplica filtro
     let filteredOrders = [];
 
     if (currentFilter === "all") {
       // "Todos" agora mostra apenas os ativos (não finalizados)
-      filteredOrders = orders.filter(o => o.status !== "closed");
+      filteredOrders = merged.filter(o => o.status !== "closed");
     } else if (currentFilter === "closed") {
-      filteredOrders = orders.filter(o => o.status === "closed");
+      filteredOrders = merged.filter(o => o.status === "closed");
     } else if (currentFilter === "pending") {
-      filteredOrders = orders.filter(
+      filteredOrders = merged.filter(
         (o) => (o.status === "open" || o.status === "pending") && o.status !== "closed"
       );
     } else if (currentFilter === "preparing") {
-      filteredOrders = orders.filter((o) => o.status === "preparing");
+      filteredOrders = merged.filter((o) => o.status === "preparing");
     } else if (currentFilter === "ready") {
-      filteredOrders = orders.filter(
+      filteredOrders = merged.filter(
         (o) => o.status === "ready" || o.status === "sent"
       );
     }
@@ -514,7 +571,8 @@
     if (!finalizadasGrid) return;
     finalizadasGrid.innerHTML = "";
 
-    const closed = orders.filter((o) => o.status === "closed");
+    const merged = getMergedOrders();
+    const closed = merged.filter((o) => o.status === "closed");
 
     if (closed.length === 0) {
       finalizadasGrid.innerHTML =
@@ -562,7 +620,7 @@
           <div class="value">${fmtBRL(total)}</div>
         </div>
         <div class="comanda-actions">
-          <button class="btn btn-print" onclick="imprimirViaCliente(${o.id})" style="width: 100%; border: 1px solid rgba(255, 255, 255, 0.2); background: var(--bg-lighter);">🖨️ Imprimir Via</button>
+          <button class="btn btn-print" onclick="imprimirViaCliente(${JSON.stringify(o.id)})" style="width: 100%; border: 1px solid rgba(255, 255, 255, 0.2); background: var(--bg-lighter);">🖨️ Imprimir Via</button>
         </div>
         <div class="comanda-footer">
           <small>Fechada em ${o.closedAt ? new Date(o.closedAt).toLocaleString() : "N/A"
@@ -1660,8 +1718,9 @@
     const end = new Date(endDate);
     end.setHours(23, 59, 59, 999);
 
-    const filteredOrders = orders.filter((o) => {
-      const orderDate = o.closedAt ? new Date(o.closedAt) : new Date(o.createdAt);
+    const merged = getMergedOrders();
+    const filteredOrders = merged.filter((o) => {
+      const orderDate = o.closedAt ? new Date(o.closedAt) : new Date(o.createdAt || 0);
       return orderDate >= start && orderDate <= end && o.status === "closed";
     });
 
@@ -1674,6 +1733,8 @@
           totalRevenue += item.price * item.qty;
           productCount[item.name] = (productCount[item.name] || 0) + item.qty;
         });
+      } else if (order.total != null) {
+        totalRevenue += Number(order.total);
       }
     });
 
@@ -1808,18 +1869,18 @@
     }
 
     // 1. Dados de Faturamento por Hora (Hoje)
+    const merged = getMergedOrders();
     const hours = Array.from({ length: 24 }, (_, i) => `${i}h`);
     const hourlySales = new Array(24).fill(0);
     const today = new Date().toDateString();
 
-    orders.forEach(o => {
-      // Considerar apenas pedidos fechados ou enviados hoje
+    merged.forEach(o => {
       const dateStr = o.createdAt || new Date().toISOString();
       const orderDate = new Date(dateStr);
 
       if (orderDate.toDateString() === today && (o.status === 'closed' || o.status === 'sent' || o.status === 'ready')) {
         const hour = orderDate.getHours();
-        const total = o.items ? o.items.reduce((s, i) => s + i.price * i.qty, 0) : 0;
+        const total = o.total || (o.items ? o.items.reduce((s, i) => s + i.price * i.qty, 0) : 0);
         hourlySales[hour] += total;
       }
     });
@@ -1830,7 +1891,7 @@
 
     // 2. Dados por Categoria
     const catSales = {};
-    orders.forEach(o => {
+    merged.forEach(o => {
       if (o.status === 'closed' || o.status === 'sent') {
         if (o.items) {
           o.items.forEach(item => {
@@ -1858,7 +1919,7 @@
     const topProductsDiv = q("#topProducts");
     if (topProductsDiv) {
       const productCount = {};
-      orders.filter(o => o.status === 'closed' || o.status === 'sent').forEach(order => {
+      merged.filter(o => o.status === 'closed' || o.status === 'sent').forEach(order => {
         if (order.items) {
           order.items.forEach(item => {
             productCount[item.name] = (productCount[item.name] || 0) + item.qty;
@@ -1910,7 +1971,7 @@
   // ============================================
 
   window.openComandaDetails = function (orderId) {
-    const order = orders.find((o) => o.id === orderId);
+    const order = getOrderById(orderId);
     if (!order) return;
 
     // Limpar notificação ao abrir detalhes
@@ -2046,7 +2107,7 @@
 
     modalFooter.innerHTML = `
       <button class="btn-secondary" onclick="closeComandaDetailsModal()">Fechar</button>
-      <button class="btn-print" onclick="imprimirViaCliente(${order.id})">🖨️ Imprimir Via</button>
+      <button class="btn-print" onclick="imprimirViaCliente(${JSON.stringify(order.id)})">🖨️ Imprimir Via</button>
       ${order.status === "sent"
         ? `<button class="btn btn-success" onclick="confirmPaymentFromDetails(${order.id}, '${order.clientId || ''}')">Confirmar Pagamento e Finalizar</button>`
         : order.status !== "closed"
@@ -2080,8 +2141,8 @@
 
   // Função para imprimir a via do cliente (Cupom não-fiscal 80mm)
   window.imprimirViaCliente = function (orderId) {
-    // Busca a comanda ativa
-    const order = orders.find((o) => o.id === orderId);
+    // Busca a comanda ativa (localStorage ou API)
+    const order = getOrderById(orderId);
     if (!order) return;
 
     // Remove cupom de impressão anterior da DOM (se existir algum lixo)
@@ -2522,14 +2583,13 @@
     }
   });
 
-  // Polling (garantia final)
-  setInterval(() => {
+  // Polling (garantia final) + busca vendas do backend (pedidos de outros dispositivos)
+  (async function pollAndFetch() {
     const incomingOrders = readLS(LS_ORDERS, []);
     const currentCalls = readLS(LS_WAITER_CALLS, []);
 
     let updated = false;
 
-    // Comparação simplificada para polling, ignorando 'tem_notificacao' para detectar mudanças reais nos dados
     const incomingOrdersWithoutNotificationFlag = incomingOrders.map(o => {
       const { tem_notificacao, ...rest } = o;
       return rest;
@@ -2549,9 +2609,14 @@
       updated = true;
     }
 
+    await fetchVendasFromAPI();
+    updated = true;
+
     if (updated) {
       renderAll();
     }
-  }, 2000);
+  })();
+
+  setInterval(pollAndFetch, 5000);
 
 })();
