@@ -258,7 +258,13 @@ app.get('/admin.html', requireAdminAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'admin.html'));
 });
 
-app.use(express.static(path.join(__dirname)));
+app.use(express.static(path.join(__dirname), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
+      res.set('Cache-Control', 'no-cache, must-revalidate');
+    }
+  }
+}));
 
 app.listen(PORT, () => {
   console.log(`Servidor rodando em http://localhost:${PORT}`);

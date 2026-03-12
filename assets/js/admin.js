@@ -325,9 +325,10 @@
   // Render functions
   function renderStats() {
     const merged = getMergedOrders();
-    const pending = merged.filter((o) => o.open && o.status === "open").length;
+    const pending = merged.filter((o) => o.open && o.status !== "closed").length;
     const active = merged.filter((o) => o.open).length;
     const delivered = merged.filter((o) => o.status === "closed").length;
+    console.log('[renderStats] Total:', merged.length, '| Pendentes(open && !closed):', pending, '| Ativos(open):', active, '| Fechados:', delivered, '| sent:', merged.filter(o => o.status === 'sent').length, '| open:', merged.filter(o => o.status === 'open').length);
     const revenue = merged
       .filter((o) => o.status === "closed")
       .reduce(
@@ -427,6 +428,7 @@
     allOrdersList.innerHTML = "";
 
     const merged = getMergedOrders();
+    console.log('[renderAllOrders] filtro:', currentFilter, '| total merged:', merged.length);
     // Aplica filtro
     let filteredOrders = [];
 
@@ -436,15 +438,17 @@
     } else if (currentFilter === "closed") {
       filteredOrders = merged.filter(o => o.status === "closed");
     } else if (currentFilter === "pending") {
+      // Pendentes: todos os abertos que não estão fechados (inclui 'open', 'sent', 'pending')
       filteredOrders = merged.filter(
-        (o) => (o.status === "open" || o.status === "pending") && o.status !== "closed"
+        (o) => o.open && o.status !== "closed"
       );
     } else if (currentFilter === "preparing") {
       filteredOrders = merged.filter((o) => o.status === "preparing");
     } else if (currentFilter === "ready") {
-      filteredOrders = merged.filter(
-        (o) => o.status === "ready" || o.status === "sent"
-      );
+      filteredOrders = merged.filter((o) => o.status === "ready");
+    } else if (currentFilter === "sent") {
+      // Aguardando pagamento
+      filteredOrders = merged.filter((o) => o.status === "sent");
     }
 
     if (filteredOrders.length === 0) {
@@ -502,6 +506,7 @@
 
     const merged = getMergedOrders();
     const open = merged.filter((o) => o.open);
+    console.log('[renderComandas] open:', open.length, '| total merged:', merged.length, '| itens open:', open.map(o => o.id + ':' + o.status));
 
     if (open.length === 0) {
       comandasGrid.innerHTML =
@@ -2640,7 +2645,10 @@
 
       // 3. Re-renderizar se houve qualquer mudança
       if (updated) {
-        console.log('[POLLING] Re-renderizando painel admin');
+        const allMerged = getMergedOrders();
+        const pendentes = allMerged.filter(o => o.open && o.status !== 'closed').length;
+        const fechados = allMerged.filter(o => o.status === 'closed').length;
+        console.log('[POLLING] Re-renderizando | Pendentes:', pendentes, '| Fechados:', fechados, '| Total:', allMerged.length);
         renderAll();
       }
     } catch (e) {
