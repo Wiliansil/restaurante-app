@@ -705,12 +705,44 @@ btnAddToCart.addEventListener("click", () => {
   closeModal(productModal);
   showToast("Item adicionado à comanda");
 
-  // Notificar painel admin
+  // Notificar painel admin (mesmo dispositivo)
   if (channel) {
     channel.postMessage({
       type: "orders-updated",
       orders,
     });
+  }
+
+  // --- Sincronizar com backend para outros dispositivos ---
+  const total = ord.items.reduce((s, i) => s + i.price * i.qty, 0);
+  if (ord.apiVendaId) {
+    // Venda já existe no backend — atualizar itens
+    fetch(window.location.origin + '/api/vendas/' + ord.apiVendaId + '/itens', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itens: ord.items, total: total })
+    }).catch(err => console.warn('Falha ao atualizar itens no backend:', err));
+  } else {
+    // Primeira vez — criar venda no backend
+    fetch(window.location.origin + '/api/vendas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: session.clientId,
+        mesa: session.table,
+        itens: ord.items,
+        total: total
+      })
+    })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data && data.id) {
+          ord.apiVendaId = data.id;
+          saveOrders(false); // Salva sem broadcast para não causar loop
+          console.log('[SYNC] Venda criada no backend, ID:', data.id);
+        }
+      })
+      .catch(err => console.warn('Falha ao criar venda no backend:', err));
   }
 });
 
@@ -760,26 +792,39 @@ btnConfirmFinish.addEventListener("click", () => {
     });
   }
 
-  // --- Enviar venda para o backend (PostgreSQL + N8N) ---
-  const backendVendasUrl = window.location.origin + '/api/vendas';
-  fetch(backendVendasUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      session_id: session.clientId,
-      mesa: session.table,
-      itens: ord.items,
-      total: total
+  // --- Sincronizar com backend ---
+  if (ord.apiVendaId) {
+    // Venda já existe no backend (foi criada ao adicionar item)
+    // Atualizar itens finais e total
+    fetch(window.location.origin + '/api/vendas/' + ord.apiVendaId + '/itens', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itens: ord.items, total: total })
+    }).catch(err => console.warn('Falha ao atualizar venda no backend:', err));
+  } else {
+    // Fallback: criar venda se não foi criada antes
+    fetch(window.location.origin + '/api/vendas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: session.clientId,
+        mesa: session.table,
+        itens: ord.items,
+        total: total
+      })
     })
-  })
-    .then((res) => {
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    })
-    .catch((err) => {
-      console.warn("Falha ao enviar comanda ao backend:", err);
-      showToast("Comanda salva localmente. O painel admin pode não exibir em outro dispositivo.", 5000);
-    });
-  // ------------------------------------------------------------------
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data && data.id) {
+          ord.apiVendaId = data.id;
+          saveOrders(false);
+        }
+      })
+      .catch(err => {
+        console.warn('Falha ao enviar comanda ao backend:', err);
+        showToast('Comanda salva localmente. O painel admin pode não exibir em outro dispositivo.', 5000);
+      });
+  }
 
   // Atualiza UI para não permitir mais pedidos nesta comanda
   updateOrderUI();
@@ -835,6 +880,17 @@ btnConfirmWaiter.addEventListener("click", () => {
       clientId: call.clientId
     });
   }
+
+  // --- Enviar chamado para o backend (sincronização entre dispositivos) ---
+  fetch(window.location.origin + '/api/chamados-garcom', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      mesa: session.table || 'N/A',
+      cliente_nome: session.name || 'Cliente',
+      session_id: session.clientId
+    })
+  }).catch(err => console.warn('Falha ao enviar chamado ao backend:', err));
 
   showToast("Garçom chamado!");
 });
