@@ -33,9 +33,15 @@
   // Mapeia pendente -> status sent, open true | pago -> status closed, open false
   async function fetchVendasFromAPI() {
     try {
-      const res = await fetch(window.location.origin + '/api/vendas');
-      if (!res.ok) return;
+      const url = window.location.origin + '/api/vendas?_t=' + Date.now();
+      console.log('[POLLING] Buscando vendas da API...');
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) {
+        console.warn('[POLLING] API retornou status', res.status);
+        return;
+      }
       const vendas = await res.json();
+      console.log('[POLLING]', (vendas || []).length, 'vendas recebidas da API');
       const isPending = (v) => v.status === 'pendente';
       ordersFromAPI = (vendas || []).map((v) => {
         const itens = Array.isArray(v.itens) ? v.itens : (typeof v.itens === 'string' ? JSON.parse(v.itens || '[]') : []);
@@ -56,25 +62,22 @@
         };
       });
     } catch (e) {
-      console.warn('fetchVendasFromAPI falhou:', e);
-      ordersFromAPI = [];
+      console.warn('[POLLING] fetchVendasFromAPI falhou:', e);
     }
   }
 
   // Lista mesclada: localStorage + API (para exibir pedidos de todos os dispositivos)
+  // Deduplicação por apiVendaId real do banco, evitando descartar pedidos válidos
   function getMergedOrders() {
-    const lsClosedKeys = new Set(
+    // Coletar IDs de vendas da API que já existem no localStorage (pedidos locais que foram sincronizados)
+    const localApiIds = new Set(
       orders
-        .filter((o) => o.status === 'closed')
-        .map((o) => {
-          const total = o.items ? o.items.reduce((s, i) => s + i.price * i.qty, 0) : (o.total || 0);
-          return `${o.table}-${o.sessionName || ''}-${total.toFixed(2)}`;
-        })
+        .filter((o) => o.apiVendaId)
+        .map((o) => o.apiVendaId)
     );
+    // Filtrar da API somente pedidos cujo ID real não está no localStorage
     const fromAPI = ordersFromAPI.filter((v) => {
-      const total = v.total || (v.items ? v.items.reduce((s, i) => s + i.price * i.qty, 0) : 0);
-      const key = `${v.table}-${v.sessionName || ''}-${total.toFixed(2)}`;
-      return !lsClosedKeys.has(key);
+      return !localApiIds.has(v.apiVendaId);
     });
     return [...orders, ...fromAPI];
   }
@@ -2587,39 +2590,66 @@
   });
 
   // Polling (garantia final) + busca vendas do backend (pedidos de outros dispositivos)
-  (async function pollAndFetch() {
-    const incomingOrders = readLS(LS_ORDERS, []);
-    const currentCalls = readLS(LS_WAITER_CALLS, []);
+  // Snapshot da API para detecção de mudanças reais
+  let _lastAPISnapshot = '';
 
-    let updated = false;
+  async function pollAndFetch() {
+    try {
+      let updated = false;
 
-    const incomingOrdersWithoutNotificationFlag = incomingOrders.map(o => {
-      const { tem_notificacao, ...rest } = o;
-      return rest;
-    });
-    const currentOrdersWithoutNotificationFlag = orders.map(o => {
-      const { tem_notificacao, ...rest } = o;
-      return rest;
-    });
+      // 1. Verificar mudanças no localStorage (pedidos locais de outras abas)
+      const incomingOrders = readLS(LS_ORDERS, []);
+      const currentCalls = readLS(LS_WAITER_CALLS, []);
 
-    if (JSON.stringify(incomingOrdersWithoutNotificationFlag) !== JSON.stringify(currentOrdersWithoutNotificationFlag)) {
-      orders = mergeOrders(orders, incomingOrders);
-      updated = true;
+      const stripNotif = (list) => list.map(o => {
+        const { tem_notificacao, ...rest } = o;
+        return rest;
+      });
+
+      if (JSON.stringify(stripNotif(incomingOrders)) !== JSON.stringify(stripNotif(orders))) {
+        orders = mergeOrders(orders, incomingOrders);
+        updated = true;
+        console.log('[POLLING] Mudança detectada no localStorage (orders)');
+      }
+
+      if (JSON.stringify(currentCalls) !== JSON.stringify(waiterCalls)) {
+        waiterCalls = currentCalls;
+        updated = true;
+        console.log('[POLLING] Mudança detectada no localStorage (waiterCalls)');
+      }
+
+      // 2. Buscar vendas da API (fonte principal para sincronização entre dispositivos)
+      const prevSnapshot = _lastAPISnapshot;
+      await fetchVendasFromAPI();
+      const newSnapshot = JSON.stringify(ordersFromAPI.map(o => o.apiVendaId + ':' + o.status));
+
+      if (newSnapshot !== prevSnapshot) {
+        _lastAPISnapshot = newSnapshot;
+        if (prevSnapshot !== '') {
+          // Só marca como atualizado se não for a primeira carga
+          updated = true;
+          console.log('[POLLING] Mudança detectada na API — novos/atualizados pedidos');
+        } else {
+          // Primeira carga: sempre renderizar
+          updated = true;
+          console.log('[POLLING] Primeira carga da API concluída');
+        }
+      } else {
+        console.log('[POLLING] Sem mudanças na API');
+      }
+
+      // 3. Re-renderizar se houve qualquer mudança
+      if (updated) {
+        console.log('[POLLING] Re-renderizando painel admin');
+        renderAll();
+      }
+    } catch (e) {
+      console.error('[POLLING] Erro no polling:', e);
     }
+  }
 
-    if (JSON.stringify(currentCalls) !== JSON.stringify(waiterCalls)) {
-      waiterCalls = currentCalls;
-      updated = true;
-    }
-
-    await fetchVendasFromAPI();
-    updated = true;
-
-    if (updated) {
-      renderAll();
-    }
-  })();
-
-  setInterval(pollAndFetch, 5000);
+  // Execução inicial + intervalo de 3 segundos
+  pollAndFetch();
+  setInterval(pollAndFetch, 1000);
 
 })();

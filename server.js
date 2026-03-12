@@ -139,6 +139,11 @@ app.get('/api/produtos', async (req, res) => {
 });
 
 app.get('/api/vendas', async (req, res) => {
+  // Impedir cache de navegadores e proxies reversos
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+
   try {
     const statusFilter = req.query.status;
     let whereClause = '';
